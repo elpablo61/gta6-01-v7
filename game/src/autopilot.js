@@ -76,6 +76,11 @@ export function createAutopilot(game) {
     const out = { move: { x: 0, y: 0 }, aimAngle: g.player.aimAngle, fire: false, enterCar: false, exitCar: false, confirm: false, drive: null, garageAction: false, sprint: false };
     ap.dialogCooldown -= dt;
     ap.fireTimer -= dt;
+    // Declared up here: the dialog / no-objective branches below use
+    // `player` too (a later `const` would be a TDZ ReferenceError
+    // that throws out of stepFixed every frame — the post-m1 freeze).
+    const player = g.player;
+    const car = player.inCar;
 
     // Dialog first: the autopilot must be able to press E to accept a
     // mission before any car search runs (m2 freeze fix).
@@ -99,8 +104,6 @@ export function createAutopilot(game) {
       return out;
     }
 
-    const player = g.player;
-    const car = player.inCar;
     if (car) ap.targetCar = null; // no longer hunting a parked car
     const kind = objective.kind;
 
