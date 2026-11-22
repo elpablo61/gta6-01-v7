@@ -215,13 +215,16 @@ export function createGame() {
           if (game.saveSlots) game.saveSlots.autosaveToActive(game);
           missionIndex = Math.min(missionIndex + 1, MISSION_DEFS.length);
           pendingOffer = missionIndex;
-          pendingOfferTimer = 1.2;
+          pendingOfferTimer = 0.5; // short gap: Rook stands still with
+          // no objective while this runs, and a foot cop within 30
+          // arrests after 1.2s — 1.2s of standing still was exactly
+          // enough to get caught between m10 and m11.
           heliForced = false;
         } else if (ev.type === 'fail') {
           audio.sfx.fail();
           toast(`${ev.mission.name} failed — starting over from stage 1.`);
           pendingOffer = MISSION_DEFS.indexOf(ev.mission);
-          pendingOfferTimer = 1.2;
+          pendingOfferTimer = 0.5; // same short gap as after a completion
           heliForced = false;
           combat.clearArena();
         } else if (ev.type === 'checkpoint') {
@@ -384,7 +387,10 @@ export function createGame() {
     } else {
       let move = { x: 0, y: 0 };
       let sprint = false;
-      if (apOut) { move = apOut.move; }
+      // The autopilot sprints on foot (see autopilot.js walkTo): a
+      // sprinting Rook (330) outruns foot cops (165) and can never
+      // satisfy the arrest rule (it needs a slow player, <120).
+      if (apOut) { move = apOut.move; sprint = !!apOut.sprint; }
       else if (input) { move = input.moveVector(); sprint = input.held.shift; }
       player.updateOnFoot(dt, move, aimAngle, sprint);
       // Shooting on foot only.

@@ -73,7 +73,7 @@ export function createAutopilot(game) {
   // exitCar, confirm, steerTarget}.
   function step(dt, objective) {
     const g = game;
-    const out = { move: { x: 0, y: 0 }, aimAngle: g.player.aimAngle, fire: false, enterCar: false, exitCar: false, confirm: false, drive: null, garageAction: false };
+    const out = { move: { x: 0, y: 0 }, aimAngle: g.player.aimAngle, fire: false, enterCar: false, exitCar: false, confirm: false, drive: null, garageAction: false, sprint: false };
     ap.dialogCooldown -= dt;
     ap.fireTimer -= dt;
 
@@ -83,7 +83,21 @@ export function createAutopilot(game) {
       if (ap.dialogCooldown <= 0) { out.confirm = true; ap.dialogCooldown = 0.5; }
       return out;
     }
-    if (!objective) return out;
+    // No objective (between missions): never stand still on foot —
+    // a foot cop within 30 arrests a slow player after 1.2s, and
+    // the inter-mission gap used to leave Rook standing in the open
+    // at 4 stars. On foot, get in the nearest parked car (in a car
+    // the arrest rule cannot fire at all). In a car, stay put.
+    if (!objective) {
+      if (!player.inCar) {
+        const parked = nearestParkedFaster(player.x, player.y, 0, 800);
+        if (parked) {
+          walkTo(out, parked, dt);
+          if (Math.hypot(parked.x - player.x, parked.y - player.y) < 60) out.enterCar = true;
+        }
+      }
+      return out;
+    }
 
     const player = g.player;
     const car = player.inCar;
@@ -218,11 +232,15 @@ export function createAutopilot(game) {
 
   // Walk toward a target via the road graph: first to the nearest road
   // point, then along roads, final leg on foot. Memoized (spec §1).
+  // Rook SPRINTS whenever he walks (out.sprint): 330 outruns a foot
+  // cop (165) and the arrest rule needs a slow player (<120), so a
+  // sprinting Rook can never be arrested on foot.
   function walkTo(out, target, dt) {
     const player = game.player;
     const t = memoWalkTarget(target);
     const d = Math.hypot(t.x - player.x, t.y - player.y);
     if (d < 18) { out.move = { x: 0, y: 0 }; return; }
+    out.sprint = true;
     let dest = t;
     if (!isOnRoad(player.x, player.y) && d > 120) {
       dest = nearestRoadPoint(player.x, player.y);
