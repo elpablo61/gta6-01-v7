@@ -22,6 +22,7 @@ export function createAutopilot(game) {
     enabled: false,
     walkTarget: null, walkTargetFor: null,
     walkRoute: null, walkRouteIndex: 0, targetCar: null,
+    shootoutCrate: null, // latched crate detour (see shootout branch)
     fireTimer: 0, dialogCooldown: 0,
   };
 
@@ -107,9 +108,23 @@ export function createAutopilot(game) {
       // the target; a crate is a detour only when it is close (<250)
       // and no enemy is close (<200) — walking toward the enemy can
       // only shrink that distance, so the switch is one-way.
+      // The detour LATCHES (m12 probe fix): a crate at the 250u edge
+      // flipped the target every step — walk east toward the enemy
+      // until the crate came in range, walk west to the crate's
+      // junction, crate out of range again — Rook oscillated around
+      // x~250 for 4 minutes. Once latched, the crate stays the
+      // target until it is picked up (taken) or owned.
+      if (ap.shootoutCrate
+        && (ap.shootoutCrate.taken || g.weapons.has(ap.shootoutCrate.weaponId))) {
+        ap.shootoutCrate = null;
+      }
+      if (!ap.shootoutCrate && crate && !g.weapons.has(crate.weaponId)
+        && crateDist < 250 && enemyDist > 200) {
+        ap.shootoutCrate = crate;
+      }
       let target = null;
       if (arenaAmmo) target = arenaAmmo;
-      else if (crate && !g.weapons.has(crate.weaponId) && crateDist < 250 && enemyDist > 200) target = crate;
+      else if (ap.shootoutCrate) target = ap.shootoutCrate;
       else if (enemy) target = enemy;
       else target = { x: objective.x, y: objective.y };
       walkTo(out, target, dt);
