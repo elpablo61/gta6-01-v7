@@ -1,0 +1,8 @@
+# Build output, dependencies and local scratch — never committed.
+out/
+node_modules/
+.DS_Store
+*.log
+shots-contact-sheet.jpg
+shots-contact-sheet-gray.jpg
+/tmp/
