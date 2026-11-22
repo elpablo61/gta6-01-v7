@@ -85,9 +85,19 @@ export function createAutopilot(game) {
       const ammo = g.weapons.ammo[g.weapons.current];
       const arenaAmmo = g.nearestArenaAmmo && ammo <= AMMO_LOW_THRESHOLD ? g.nearestArenaAmmo() : null;
       const crate = g.nearestArenaCrate ? g.nearestArenaCrate() : null;
+      const enemyDist = enemy ? Math.hypot(enemy.x - player.x, enemy.y - player.y) : Infinity;
+      const crateDist = crate ? Math.hypot(crate.x - player.x, crate.y - player.y) : Infinity;
+      // Target priority (m8 stall fix): the walk target must not
+      // flip-flop. A crate sitting at the ~400u edge of the pickup
+      // scan flipped the target enemy<->crate every frame, the walk
+      // route reset each time, and Rook oscillated +-4u until the
+      // enemies killed him. So: the enemy in firing range (480) is
+      // the target; a crate is a detour only when it is close (<250)
+      // and no enemy is close (<200) — walking toward the enemy can
+      // only shrink that distance, so the switch is one-way.
       let target = null;
       if (arenaAmmo) target = arenaAmmo;
-      else if (crate && !g.weapons.has(crate.weaponId)) target = crate;
+      else if (crate && !g.weapons.has(crate.weaponId) && crateDist < 250 && enemyDist > 200) target = crate;
       else if (enemy) target = enemy;
       else target = { x: objective.x, y: objective.y };
       walkTo(out, target, dt);

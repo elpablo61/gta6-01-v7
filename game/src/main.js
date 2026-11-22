@@ -337,9 +337,15 @@ export function createGame() {
     const input = game._input;
     const mouse = input ? input.mouse() : { x: 0, y: 0, down: false };
     const cam = game._camera || { x: 0, y: 0 };
-    const aimAngle = player.inCar
-      ? player.inCar.angle
-      : Math.atan2((mouse.y + cam.y) - player.y, (mouse.x + cam.x) - player.x);
+    // Aim: the autopilot's aim wins while it drives (spec §4 — aimed
+    // bursts at the nearest enemy). The mouse aim is for humans only;
+    // ignoring apOut.aimAngle made Rook fire 29 shots past the enemy
+    // and die in the m8 shootout (aim stuck at -148 deg, enemy at 180).
+    const aimAngle = apOut && typeof apOut.aimAngle === 'number'
+      ? apOut.aimAngle
+      : (player.inCar
+        ? player.inCar.angle
+        : Math.atan2((mouse.y + cam.y) - player.y, (mouse.x + cam.x) - player.x));
 
     if (player.inCar) {
       const car = player.inCar;
