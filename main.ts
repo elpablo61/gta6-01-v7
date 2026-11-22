@@ -14,7 +14,7 @@
 //   mkdir -p out && MAKEFUN_OUTPUT_DIR=out node main.ts
 // Inside the grader MAKEFUN_OUTPUT_DIR is unset and /output is used.
 
-import { cpSync, existsSync, mkdirSync, statSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildDossier } from './vendor/makefun-game.ts';
@@ -49,3 +49,22 @@ console.log(`dossier.json: ${dossierBytes} bytes`);
 if (dossierBytes > 1450000) {
   console.warn('WARNING: dossier is over the 1,450,000 byte budget — shrink the screenshots first.');
 }
+
+// Small size report so a builder can see at a glance what went in.
+function treeBytes(dir) {
+  let total = 0;
+  let files = 0;
+  const walk = (d) => {
+    for (const entry of readdirSync(d, { withFileTypes: true })) {
+      const p = join(d, entry.name);
+      if (entry.isDirectory()) walk(p);
+      else { total += statSync(p).size; files += 1; }
+    }
+  };
+  if (existsSync(dir)) walk(dir);
+  return { total, files };
+}
+const gameTree = treeBytes(join(outputDir, 'game'));
+const shotTree = treeBytes(join(outputDir, 'screenshots'));
+console.log(`game/: ${gameTree.files} files, ${gameTree.total} bytes`);
+console.log(`screenshots/: ${shotTree.files} files, ${shotTree.total} bytes`);
