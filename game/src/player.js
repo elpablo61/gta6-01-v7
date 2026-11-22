@@ -51,6 +51,13 @@ export function makePlayer(world, startX, startY) {
     const car = state.inCar;
     state.inCar = null;
     car.speed = 0;
+    // A car Rook steps out of is parked at the roadside again: it must
+    // stay findable by the parked-car search (otherwise the autopilot
+    // can strand itself on foot next to its own car — the m7 stall,
+    // where every nearby car had already been stolen once).
+    // Parked cars never move on their own (traffic.update), so this
+    // cannot make the car drive away.
+    car.parked = true;
     const side = car.angle + Math.PI / 2;
     const fixed = world.collideCircle(car.x + Math.cos(side) * 30, car.y + Math.sin(side) * 30, 14);
     state.x = fixed.x; state.y = fixed.y;

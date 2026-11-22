@@ -122,6 +122,11 @@ export function createAutopilot(game) {
       if (!car) {
         const parked = nearestParkedFaster(player.x, player.y, 0, 400);
         if (parked) { walkTo(out, parked, dt); if (Math.hypot(parked.x - player.x, parked.y - player.y) < 60) out.enterCar = true; return out; }
+        // No car nearby (every car here was already stolen once):
+        // walk to the Spray Shop on foot — never stand still under
+        // wanted stars. Rook on foot (210) outwalks a foot cop (165),
+        // and the shop radius drains heat even on foot.
+        walkTo(out, SPRAY_SHOP, dt);
         return out;
       }
       out.drive = { x: SPRAY_SHOP.x, y: SPRAY_SHOP.y, cruise: car.topSpeed, arrive: 60 };
@@ -135,6 +140,8 @@ export function createAutopilot(game) {
       if (!car) {
         const parked = nearestParkedFaster(player.x, player.y, 0, 400);
         if (parked) { walkTo(out, parked, dt); if (Math.hypot(parked.x - player.x, parked.y - player.y) < 60) out.enterCar = true; return out; }
+        // No car nearby: walk to the garage on foot — never stand still.
+        walkTo(out, LANDMARKS.garage, dt);
         return out;
       }
       const d = Math.hypot(LANDMARKS.garage.x - car.x, LANDMARKS.garage.y - car.y);
@@ -204,5 +211,20 @@ export function createAutopilot(game) {
 
   // NOTE: `enabled` is a live getter — a spread snapshot would freeze it
   // at false forever and the main loop would never run the autopilot.
-  return { get enabled() { return ap.enabled; }, step, setEnabled(v) { ap.enabled = v; } };
+  // debugState() exposes the autopilot's caches for playtest probes
+  // (memoized walk target, sticky route index, cached target car).
+  function debugState() {
+    return {
+      enabled: ap.enabled,
+      walkTarget: ap.walkTarget ? { ...ap.walkTarget } : null,
+      walkTargetFor: ap.walkTargetFor ? { ...ap.walkTargetFor } : null,
+      walkRouteLength: ap.walkRoute ? ap.walkRoute.length : null,
+      walkRouteIndex: ap.walkRouteIndex,
+      targetCar: ap.targetCar
+        ? { x: Math.round(ap.targetCar.x), y: Math.round(ap.targetCar.y),
+            parked: !!ap.targetCar.parked, topSpeed: ap.targetCar.topSpeed }
+        : null,
+    };
+  }
+  return { get enabled() { return ap.enabled; }, step, setEnabled(v) { ap.enabled = v; }, debugState };
 }
