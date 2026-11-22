@@ -74,6 +74,7 @@ export function createGame() {
     world, player, traffic, pedestrians, police, combat, helicopter, weapons,
     runner, audio, crates, ammoBoxes, healthPacks,
     get courier() { return courier; },
+    get ramHits() { return ramHits; },
     get stars() { return police.state.stars; },
     get missionIndex() { return missionIndex; },
     set missionIndex(v) { missionIndex = v; },
@@ -698,7 +699,7 @@ window.__game = {
       stars: game.stars, heat: game.police.state.heat,
       mission: game.runner.activeDef?.id || null, stage: game.runner.stage,
       timeLeft: game.runner.timeLeft, inCar: !!game.player.inCar,
-      enemies: game.combat.enemies.length, ramHits,
+      enemies: game.combat.enemies.length, ramHits: game.ramHits,
       dialogOpen: game.dialogOpen, autopilot: game.autopilot.enabled,
     };
   },

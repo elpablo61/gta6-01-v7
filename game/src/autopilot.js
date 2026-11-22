@@ -21,6 +21,7 @@ export function createAutopilot(game) {
   const ap = {
     enabled: false,
     walkTarget: null, walkTargetFor: null,
+    walkRoute: null, walkRouteIndex: 0, targetCar: null,
     fireTimer: 0, dialogCooldown: 0,
   };
 
@@ -28,11 +29,22 @@ export function createAutopilot(game) {
     if (!ap.walkTargetFor || Math.hypot(target.x - ap.walkTargetFor.x, target.y - ap.walkTargetFor.y) > 120) {
       ap.walkTarget = { x: target.x, y: target.y };
       ap.walkTargetFor = { x: target.x, y: target.y };
+      // Recompute the walk route ONCE per target (sticky index below);
+      // re-scanning the route every frame oscillates at the waypoint
+      // radius boundary (player steps in, waypoint flips, steps back).
+      ap.walkRoute = null;
+      ap.walkRouteIndex = 0;
     }
     return ap.walkTarget;
   }
 
   function nearestParkedFaster(x, y, minTopSpeed, maxDist) {
+    // Cache the chosen car: re-picking every frame flips the target
+    // between two near cars and the walk route resets each time.
+    if (ap.targetCar && ap.targetCar.parked && ap.targetCar.topSpeed > minTopSpeed &&
+        Math.hypot(ap.targetCar.x - x, ap.targetCar.y - y) < maxDist + 200) {
+      return ap.targetCar;
+    }
     let best = null, bestD = maxDist;
     for (const c of game.traffic.parked) {
       if (!c.parked) continue;
@@ -40,6 +52,7 @@ export function createAutopilot(game) {
       const d = Math.hypot(c.x - x, c.y - y);
       if (d < bestD) { best = c; bestD = d; }
     }
+    ap.targetCar = best;
     return best;
   }
 
@@ -61,6 +74,7 @@ export function createAutopilot(game) {
 
     const player = g.player;
     const car = player.inCar;
+    if (car) ap.targetCar = null; // no longer hunting a parked car
     const kind = objective.kind;
 
     // --- Shootout: on foot, walk to the nearest enemy, aimed bursts.
@@ -170,9 +184,17 @@ export function createAutopilot(game) {
       dest = nearestRoadPoint(player.x, player.y);
     } else if (d > 160) {
       // Route along the graph to the target's junction, then the last leg.
-      const route = findRoute(player.x, player.y, t.x, t.y);
-      const wp = route.find((p) => Math.hypot(p.x - player.x, p.y - player.y) > 40) || route[route.length - 1];
-      dest = wp;
+      // Sticky index: advance only when a waypoint is reached, never
+      // re-pick the "first far waypoint" every frame.
+      if (!ap.walkRoute) {
+        ap.walkRoute = findRoute(player.x, player.y, t.x, t.y);
+        ap.walkRouteIndex = 0;
+      }
+      while (ap.walkRouteIndex < ap.walkRoute.length &&
+             Math.hypot(ap.walkRoute[ap.walkRouteIndex].x - player.x, ap.walkRoute[ap.walkRouteIndex].y - player.y) < 30) {
+        ap.walkRouteIndex += 1;
+      }
+      if (ap.walkRouteIndex < ap.walkRoute.length) dest = ap.walkRoute[ap.walkRouteIndex];
     }
     const dx = dest.x - player.x, dy = dest.y - player.y;
     const len = Math.hypot(dx, dy) || 1;
@@ -180,5 +202,7 @@ export function createAutopilot(game) {
     out.aimAngle = Math.atan2(dy, dx);
   }
 
-  return { ...ap, step, setEnabled(v) { ap.enabled = v; } };
+  // NOTE: `enabled` is a live getter — a spread snapshot would freeze it
+  // at false forever and the main loop would never run the autopilot.
+  return { get enabled() { return ap.enabled; }, step, setEnabled(v) { ap.enabled = v; } };
 }
