@@ -26,17 +26,32 @@ export function makePlayer(world, startX, startY) {
     state.y = Math.max(12, Math.min(WORLD_SIZE - 12, fixed.y));
     if (state.x > 3052) state.x = 3052;
   };
-  state.tryEnterCar = (cars, police, pedestrians) => {
+  state.tryEnterCar = (cars, police, pedestrians, preferred = null) => {
     let best = null, bestD = 70;
-    for (const c of cars) {
-      const d = Math.hypot(c.x - state.x, c.y - state.y);
-      if (d < bestD) { best = c; bestD = d; }
+    // A caller that already chose a specific car (the autopilot
+    // stealing a faster parked car) must get THAT car: picking the
+    // nearest car instead re-enters the slow car the player just
+    // exited — exit -> re-enter -> exit forever, the car never
+    // drives (m5 arc stall). The preferred car only wins inside the
+    // normal 70u enter radius.
+    if (preferred && Math.hypot(preferred.x - state.x, preferred.y - state.y) < 70) {
+      best = preferred;
+    } else {
+      for (const c of cars) {
+        const d = Math.hypot(c.x - state.x, c.y - state.y);
+        if (d < bestD) { best = c; bestD = d; }
+      }
     }
     if (!best) return null;
     const wasParked = best.parked;
     const wasTraffic = !!best.isTraffic;
     state.inCar = best;
     best.parked = false; best.stolen = true;
+    // A new driver gets a fresh route: a patrol car (or any car
+    // carrying a stale route) would otherwise drive to its old
+    // destination, "arrive" there, and never follow the new target.
+    best.route = null; best.routeIndex = 0; best.routeDest = null;
+    best.stuckTimer = 0; best.reverseTimer = 0; best.lastX = best.x; best.lastY = best.y;
     if (wasTraffic) {
       if (pedestrians) pedestrians.scare(best.x, best.y, 120);
       if (police) police.addHeat(8);

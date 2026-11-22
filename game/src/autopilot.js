@@ -73,7 +73,7 @@ export function createAutopilot(game) {
   // exitCar, confirm, steerTarget}.
   function step(dt, objective) {
     const g = game;
-    const out = { move: { x: 0, y: 0 }, aimAngle: g.player.aimAngle, fire: false, enterCar: false, exitCar: false, confirm: false, drive: null, garageAction: false, sprint: false };
+    const out = { move: { x: 0, y: 0 }, aimAngle: g.player.aimAngle, fire: false, enterCar: false, enterCarTarget: null, exitCar: false, confirm: false, drive: null, garageAction: false, sprint: false };
     ap.dialogCooldown -= dt;
     ap.fireTimer -= dt;
     // Declared up here: the dialog / no-objective branches below use
@@ -98,7 +98,7 @@ export function createAutopilot(game) {
         const parked = nearestParkedFaster(player.x, player.y, 0, 800);
         if (parked) {
           walkTo(out, parked, dt);
-          if (Math.hypot(parked.x - player.x, parked.y - player.y) < 60) out.enterCar = true;
+          if (Math.hypot(parked.x - player.x, parked.y - player.y) < 60) { out.enterCar = true; out.enterCarTarget = parked; }
         }
       }
       return out;
@@ -159,7 +159,7 @@ export function createAutopilot(game) {
       if (!courier) return out;
       if (!car) {
         const parked = nearestParkedFaster(player.x, player.y, 0, 400);
-        if (parked) { walkTo(out, parked, dt); if (Math.hypot(parked.x - player.x, parked.y - player.y) < 60) out.enterCar = true; return out; }
+        if (parked) { walkTo(out, parked, dt); if (Math.hypot(parked.x - player.x, parked.y - player.y) < 60) { out.enterCar = true; out.enterCarTarget = parked; } return out; }
         walkTo(out, nearestRoadPoint(courier.x, courier.y), dt);
         return out;
       }
@@ -175,7 +175,7 @@ export function createAutopilot(game) {
     if (kind === 'escape') {
       if (!car) {
         const parked = nearestParkedFaster(player.x, player.y, 0, 400);
-        if (parked) { walkTo(out, parked, dt); if (Math.hypot(parked.x - player.x, parked.y - player.y) < 60) out.enterCar = true; return out; }
+        if (parked) { walkTo(out, parked, dt); if (Math.hypot(parked.x - player.x, parked.y - player.y) < 60) { out.enterCar = true; out.enterCarTarget = parked; } return out; }
         // No car nearby (every car here was already stolen once):
         // walk to the Spray Shop on foot — never stand still under
         // wanted stars. Rook on foot (210) outwalks a foot cop (165),
@@ -193,7 +193,7 @@ export function createAutopilot(game) {
     if (kind === 'garage') {
       if (!car) {
         const parked = nearestParkedFaster(player.x, player.y, 0, 400);
-        if (parked) { walkTo(out, parked, dt); if (Math.hypot(parked.x - player.x, parked.y - player.y) < 60) out.enterCar = true; return out; }
+        if (parked) { walkTo(out, parked, dt); if (Math.hypot(parked.x - player.x, parked.y - player.y) < 60) { out.enterCar = true; out.enterCarTarget = parked; } return out; }
         // No car nearby: walk to the garage on foot — never stand still.
         walkTo(out, LANDMARKS.garage, dt);
         return out;
@@ -212,7 +212,7 @@ export function createAutopilot(game) {
       const parked = nearestParkedFaster(player.x, player.y, 0, 400);
       if (parked) {
         walkTo(out, parked, dt);
-        if (Math.hypot(parked.x - player.x, parked.y - player.y) < 60) out.enterCar = true;
+        if (Math.hypot(parked.x - player.x, parked.y - player.y) < 60) { out.enterCar = true; out.enterCarTarget = parked; }
         return out;
       }
       walkTo(out, objective, dt);

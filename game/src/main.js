@@ -405,7 +405,7 @@ export function createGame() {
         }
       }
       if (apOut?.enterCar) {
-        player.tryEnterCar(game.allCars, police, pedestrians);
+        player.tryEnterCar(game.allCars, police, pedestrians, apOut.enterCarTarget ?? null);
       }
     }
     if (apOut?.exitCar && player.inCar) player.exitCar();
