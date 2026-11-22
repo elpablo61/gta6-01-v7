@@ -47,7 +47,7 @@ export function createAutopilot(game) {
   // exitCar, confirm, steerTarget}.
   function step(dt, objective) {
     const g = game;
-    const out = { move: { x: 0, y: 0 }, aimAngle: g.player.aimAngle, fire: false, enterCar: false, exitCar: false, confirm: false, drive: null };
+    const out = { move: { x: 0, y: 0 }, aimAngle: g.player.aimAngle, fire: false, enterCar: false, exitCar: false, confirm: false, drive: null, garageAction: false };
     ap.dialogCooldown -= dt;
     ap.fireTimer -= dt;
 
@@ -125,8 +125,9 @@ export function createAutopilot(game) {
       }
       const d = Math.hypot(LANDMARKS.garage.x - car.x, LANDMARKS.garage.y - car.y);
       if (d > 70) { out.drive = { x: LANDMARKS.garage.x, y: LANDMARKS.garage.y, cruise: car.topSpeed, arrive: 60 }; return out; }
-      if (g.garage && g.garage.buyCheapest) { g.garage.buyCheapest(); }
-      else if (g.garageOpen !== true && g.openGarage) g.openGarage();
+      // In the zone: the main loop opens the menu, buys the cheapest
+      // upgrade and closes it (garage.buyCheapest with car + cash).
+      out.garageAction = true;
       return out;
     }
 
