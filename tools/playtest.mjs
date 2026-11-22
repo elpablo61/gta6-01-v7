@@ -70,6 +70,13 @@ async function newPage(browser) {
 async function state(page) {
   return page.evaluate(() => {
     const g = window.__game.game;
+    const px = g.player.x, py = g.player.y;
+    let parkedNear = 0, parkedNearD = null;
+    for (const c of g.traffic.parked) {
+      const d = Math.hypot(c.x - px, c.y - py);
+      if (d < 400) { parkedNear += 1; if (parkedNearD === null || d < parkedNearD) parkedNearD = Math.round(d); }
+    }
+    const car = g.player.inCar;
     return {
       screen: g.screen, x: Math.round(g.player.x), y: Math.round(g.player.y),
       hp: Math.round(g.player.hp), cash: Math.floor(g.player.cash),
@@ -77,10 +84,12 @@ async function state(page) {
       mission: g.runner.activeDef?.id || null, stage: g.runner.stage,
       missionIndex: g.missionIndex, completed: g.runner.completedCount,
       timeLeft: g.runner.timeLeft ? Math.round(g.runner.timeLeft) : null,
-      inCar: !!g.player.inCar, enemies: g.combat.enemies.length,
-      ramHits: g.ramHits, dialogOpen: g.dialogOpen,
+      inCar: !!car, carSpeed: car ? Math.round(car.speed) : null,
+      enemies: g.combat.enemies.length, ramHits: g.ramHits,
+      dialogOpen: g.dialogOpen, autopilot: g.autopilot.enabled,
       radio: g.radioStation, heli: g.helicopter.state,
       garagePurchases: g.garage.purchaseCount(),
+      parkedNear, parkedNearD,
       slots: g.saveSlots.listSlots().map((s) => `${s.slot}:${s.status}`).join(','),
     };
   });
@@ -276,7 +285,7 @@ async function runArc(browser) {
     await sleep(2000);
     const s = await state(page).catch(() => null);
     if (!s) break;
-    const line = `${Math.round((Date.now() - t0) / 1000)}s mission=${s.mission} stage=${s.stage} idx=${s.missionIndex} completed=${s.completed} hp=${s.hp} cash=${s.cash} stars=${s.stars} x=${s.x} y=${s.y} dialog=${s.dialogOpen} screen=${s.screen}`;
+    const line = `${Math.round((Date.now() - t0) / 1000)}s mission=${s.mission} stage=${s.stage} idx=${s.missionIndex} completed=${s.completed} hp=${s.hp} cash=${s.cash} stars=${s.stars} x=${s.x} y=${s.y} dialog=${s.dialogOpen} screen=${s.screen} inCar=${s.inCar} carSpeed=${s.carSpeed} parkedNear=${s.parkedNear}/${s.parkedNearD}`;
     appendFileSync(PROGRESS, line + '\n');
     if (s.screen === 'over') { failed = `game over (${s.hp}hp) at ${line}`; break; }
     const cur = s.mission || `idx${s.missionIndex}`;
