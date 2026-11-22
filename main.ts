@@ -21,6 +21,7 @@ import { buildDossier } from './vendor/makefun-game.ts';
 
 const repoRoot = fileURLToPath(new URL('.', import.meta.url));
 const outputDir = process.env.MAKEFUN_OUTPUT_DIR ?? '/output';
+console.log(`output: ${outputDir}`);
 
 // Fresh output directory, then the two trees the grader needs.
 mkdirSync(outputDir, { recursive: true });
