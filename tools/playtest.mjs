@@ -32,8 +32,12 @@ const BASE = `http://localhost:${PORT}`;
 const PROGRESS = '/tmp/arc-progress.txt';
 
 const argv = process.argv.slice(2);
-const modeArg = argv[argv.indexOf('--mode') + 1] || 'all';
-const missionFilter = argv[argv.indexOf('--mission') + 1] || null;
+function flagValue(name) {
+  const i = argv.indexOf(name);
+  return i === -1 ? null : argv[i + 1] ?? null;
+}
+const modeArg = flagValue('--mode') || 'all';
+const missionFilter = flagValue('--mission');
 
 const errors = [];
 const results = [];
@@ -289,11 +293,7 @@ async function runArc(browser) {
       break;
     }
     if (!missionFilter && s.completed >= 12) { done = true; break; }
-    if (missionFilter && s.completed >= 1 && s.missionIndex >= 1) {
-      // single-mission run: one completion is enough
-      if (s.mission === null && s.completed >= 1) { done = true; break; }
-    }
-    if (missionFilter && s.mission === null && s.completed >= 1) { done = true; break; }
+    if (missionFilter && s.completed >= 1) { done = true; break; }
   }
   const s = await state(page).catch(() => null);
   const elapsed = Math.round((Date.now() - t0) / 1000);
