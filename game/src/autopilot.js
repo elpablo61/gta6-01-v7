@@ -26,7 +26,19 @@ export function createAutopilot(game) {
   };
 
   function memoWalkTarget(target) {
-    if (!ap.walkTargetFor || Math.hypot(target.x - ap.walkTargetFor.x, target.y - ap.walkTargetFor.y) > 120) {
+    // Recompute when the target moved >120 — and when the memoized
+    // target went STALE: Rook already stands on it (<18) while the
+    // requested target is farther away (>18). Without the stale check
+    // a stage change to a nearby objective never takes effect: after
+    // the m12 bank shootout Rook stood on the last enemy's spot and
+    // the bank marker 120u away never became the walk target, so he
+    // froze there at 4 stars until the arc timed out.
+    const moved = !ap.walkTargetFor
+      || Math.hypot(target.x - ap.walkTargetFor.x, target.y - ap.walkTargetFor.y) > 120;
+    const stale = ap.walkTarget
+      && Math.hypot(ap.walkTarget.x - game.player.x, ap.walkTarget.y - game.player.y) < 18
+      && Math.hypot(target.x - game.player.x, target.y - game.player.y) > 18;
+    if (moved || stale) {
       ap.walkTarget = { x: target.x, y: target.y };
       ap.walkTargetFor = { x: target.x, y: target.y };
       // Recompute the walk route ONCE per target (sticky index below);
