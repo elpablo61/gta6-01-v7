@@ -29,7 +29,11 @@ import { PoliceHelicopter } from './helicopter.js';
 import { Garage, PAINT_COLORS } from './garage.js';
 import { WeaponInventory, makeWorldCrates, checkPickups } from './weapons.js';
 import { ACT2_LOCATIONS, ARRIVAL_RADIUS } from './act2-locations.js';
-import { saveGame, loadGame, applySave, autosave } from './save.js';
+import { applySave, autosave } from './save.js';
+import { Radio } from './radio.js';
+import { SaveSlots } from './saves3.js';
+import { LivingCity } from './living-city.js';
+import { registerAct2Missions, garageStageSnapshot, isGarageStageComplete } from './act2-missions.js';
 import { stageShot } from './shots.js';
 
 const MAX_FRAME = 0.25;
@@ -52,6 +56,12 @@ export function createGame() {
   const weapons = new WeaponInventory();
   const runner = createMissionRunner();
   const audio = createAudio();
+  // Act 2 wiring (Builder C): one Radio, one 3-slot save store, one
+  // living-city controller, and the m9–m12 registrations (once, at boot).
+  const radio = new Radio();
+  const saveSlots = new SaveSlots();
+  const livingCity = new LivingCity({ rng });
+  registerAct2Missions();
   const crates = makeWorldCrates(ACT2_LOCATIONS);
   const ammoBoxes = [];
   const healthPacks = [];
@@ -84,7 +94,9 @@ export function createGame() {
     get dialogOpen() { return dialogOpen; },
     get garageOpen() { return garageOpen; },
     garage, // live Garage instance (spec 3.3) — E routes through it first
-    radio: null,  // attached by the radio module (Builder B-2)
+    radio, // live Radio (spec 3.4) — replaces audio.startAmbient()
+    saveSlots, // 3-slot saves (spec 3.5)
+    livingCity, // living-city depth (spec 3.6)
     get radioStation() { return game.radio ? game.radio.stationName : null; },
     get nightFactor() {
       if (runner.activeDef?.night) return 1;
@@ -186,6 +198,7 @@ export function createGame() {
       player, playerCar: player.inCar, courier, ramHits,
       enemiesAlive: combat.enemies.length, heat: police.state.heat,
       nearestEnemy, spawnArena, spawnCourier,
+      garage, garageStageSnapshot, isGarageStageComplete,
       setHeat: (v) => police.setHeat(v),
       onEvent: (ev) => {
         if (ev.type === 'start') {
@@ -199,6 +212,7 @@ export function createGame() {
           audio.sfx.cash();
           toast(`${ev.mission.name} complete! +$${ev.mission.reward}`);
           autosave(game);
+          if (game.saveSlots) game.saveSlots.autosaveToActive(game);
           missionIndex = Math.min(missionIndex + 1, MISSION_DEFS.length);
           pendingOffer = missionIndex;
           pendingOfferTimer = 1.2;
@@ -268,6 +282,10 @@ export function createGame() {
   game.declineDialog = declineDialog;
 
   function stepFixed(dt) {
+    // Radio beat clock + living-city depth run once per fixed step,
+    // on every screen (music keeps playing, the city keeps living).
+    if (game.radio) game.radio.update(dt);
+    if (game.livingCity) game.livingCity.update(dt, game);
     // Ambient world always simmers (title backdrop + play).
     const px = player.inCar ? player.inCar.x : player.x;
     const py = player.inCar ? player.inCar.y : player.y;
@@ -522,7 +540,7 @@ function startNewGame() {
   game.missionIndex = 0;
   game._setScreen(SCREEN_PLAY);
   showOnly(null);
-  game.audio.startAmbient();
+  game.radio.start(); // radio replaces the old ambient loop (spec 3.4)
   announce('Playing. First job: talk to Mara.');
   game.offerMission(0);
 }
@@ -534,11 +552,13 @@ function resumeGame() {
 
 document.getElementById('btn-new-game').addEventListener('click', startNewGame);
 document.getElementById('btn-continue').addEventListener('click', () => {
-  const saved = loadGame();
+  // Continue loads the ACTIVE slot (picked in the slot list) via
+  // loadSlot + applySave; an empty/corrupt active slot starts fresh.
+  const saved = game.saveSlots.loadSlot(game.saveSlots.getActiveSlot());
   if (saved && applySave(game, saved)) {
     game._setScreen(SCREEN_PLAY);
     showOnly(null);
-    game.audio.startAmbient();
+    game.radio.start();
     announce('Save loaded.');
     game.offerMission(game.missionIndex);
   } else {
@@ -552,7 +572,7 @@ document.getElementById('btn-autopilot').addEventListener('click', () => {
 });
 document.getElementById('btn-resume').addEventListener('click', resumeGame);
 document.getElementById('btn-save').addEventListener('click', () => {
-  saveGame(game);
+  game.saveSlots.saveActive(game); // pause-menu Save writes the active slot
   document.getElementById('btn-save').textContent = 'Saved!';
   setTimeout(() => { document.getElementById('btn-save').textContent = 'Save Game'; }, 1200);
 });
@@ -576,16 +596,20 @@ document.getElementById('btn-over-title').addEventListener('click', () => {
 document.getElementById('btn-accept-mission').addEventListener('click', () => game.acceptDialog());
 document.getElementById('btn-decline-mission').addEventListener('click', () => game.declineDialog());
 
-// Save line on the title screen.
-const saved = loadGame();
-if (saved) {
-  document.getElementById('save-line').textContent =
-    `Save found: $${saved.cash} · mission ${saved.missionIndex + 1}/${MISSION_DEFS.length} · ${saved.savedAt.slice(0, 10)}`;
-  document.getElementById('btn-continue').hidden = false;
-} else {
-  document.getElementById('save-line').textContent = 'No save yet.';
-  document.getElementById('btn-continue').hidden = true;
+// Save slots on the title screen (spec 3.5): the 3-slot list with
+// mission progress, cash and date per slot — or "Empty". Picking a
+// slot makes it the active slot; Continue loads that slot.
+function refreshSaveLine() {
+  const slots = game.saveSlots.listSlots();
+  const anyOk = slots.some((s) => s.status === 'ok');
+  const active = slots.find((s) => s.slot === game.saveSlots.getActiveSlot());
+  document.getElementById('save-line').textContent = anyOk
+    ? `Active slot: ${game.saveSlots.slotLabel(active)}`
+    : 'No save yet — pick a slot and start a new game.';
+  document.getElementById('btn-continue').hidden = !anyOk;
 }
+game.saveSlots.renderSlotList(document.getElementById('save-slots'), () => refreshSaveLine());
+refreshSaveLine();
 
 function handleActions() {
   const actions = input.takeActions();

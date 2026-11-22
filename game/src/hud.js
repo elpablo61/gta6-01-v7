@@ -81,8 +81,9 @@ export function createHud() {
     if (car) text(ctx, `${Math.round(Math.abs(car.speed) * 0.36)} km/h`, viewW - 24, viewH - 24, 30, PALETTE.text, 'right', true);
     // Minimap, >=180px, upper-right.
     drawMinimap(ctx, game, 190, viewW - 210, 16);
-    // Radio station name under the minimap (set by the radio module).
-    if (game.radioStation) text(ctx, `♪ ${game.radioStation}`, viewW - 210, 232, 20, PALETTE.text);
+    // Radio station name + animated equalizer under the minimap.
+    if (game.radio) game.radio.drawEqualizer(ctx, viewW - 210, 232);
+    else if (game.radioStation) text(ctx, `♪ ${game.radioStation}`, viewW - 210, 232, 20, PALETTE.text);
     // Objective banner, >=28px bold over a dark scrim, lower-left.
     if (game.objective) {
       const label = game.objective.label;

@@ -124,6 +124,11 @@ export function createMissionRunner() {
       r.stageState.arenaSpawned = true;
     }
     if (st.type === 'ram' && ctx.spawnCourier) ctx.spawnCourier();
+    // Garage stage (m11): snapshot the purchase count at stage start;
+    // the stage only completes after a purchase (see update()).
+    if (st.type === 'garage' && ctx.garageStageSnapshot) {
+      r.stageState.garageSnapshot = ctx.garageStageSnapshot(ctx.garage);
+    }
     if (ctx.onEvent) ctx.onEvent({ type: 'stage', label: st.label });
   }
 
@@ -195,6 +200,10 @@ export function createMissionRunner() {
       if (e) return { x: e.x, y: e.y, label: st.label, kind: 'shootout' };
       return { x: arena.x, y: arena.y, label: st.label, kind: 'shootout' };
     }
+    if (st.type === 'garage') {
+      const loc = st.location();
+      return { x: loc.x, y: loc.y, label: st.label, kind: 'garage' };
+    }
     return null;
   }
 
@@ -221,6 +230,13 @@ export function createMissionRunner() {
       if (s.hits >= st.hitsNeeded) return advance(ctx);
     } else if (st.type === 'shootout') {
       if ((ctx.enemiesAlive ?? 1) === 0 && s.arenaSpawned) return advance(ctx);
+    } else if (st.type === 'garage') {
+      // m11: advances ONLY after a purchase since the stage began
+      // (snapshot taken in beginStage) — never a free pass.
+      if (ctx.isGarageStageComplete
+        && ctx.isGarageStageComplete(s.garageSnapshot ?? 0, ctx.garage, st.purchasesRequired || 1)) {
+        return advance(ctx);
+      }
     }
     return null;
   }

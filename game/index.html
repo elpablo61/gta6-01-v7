@@ -15,6 +15,9 @@
   .panel p { color: #9aa3b2; font-size: 18px; line-height: 1.5; }
   .panel button { margin: 6px; padding: 12px 26px; font-size: 18px; border-radius: 8px; border: none; background: #ffd34d; color: #1a1a1a; font-weight: 700; cursor: pointer; }
   .panel button.secondary { background: #2a3040; color: #eef1f5; }
+  #save-slots { display: flex; flex-direction: column; gap: 6px; margin: 8px 0; }
+  .save-slot { width: 100%; text-align: left; font-size: 15px; padding: 10px 14px; }
+  .save-slot.active-slot { outline: 2px solid #ffd34d; }
   #mission-dialog .panel { text-align: left; }
   #mission-dialog .fixer { color: #ffd34d; font-weight: 700; }
   #controls-list { text-align: left; font-size: 16px; color: #c8cfdb; line-height: 1.7; }
@@ -37,6 +40,7 @@
       R — radio &nbsp;·&nbsp; P / Esc — pause &nbsp;·&nbsp; M — toggle autopilot (playtest)
     </div>
     <p id="save-line"></p>
+    <div id="save-slots"></div>
     <button id="btn-new-game">New Game</button>
     <button id="btn-continue" class="secondary">Continue</button>
     <button id="btn-autopilot" class="secondary">Autopilot Playtest</button>
